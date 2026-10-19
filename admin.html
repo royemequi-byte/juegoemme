@@ -16,6 +16,9 @@
         .login-card .logo { font-size: 48px; margin-bottom: 12px; }
         .login-card h1 { color: #667eea; font-size: 24px; margin-bottom: 6px; }
         .login-card p { color: #888; margin-bottom: 30px; font-size: 14px; }
+        .btn-google { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; padding: 14px 20px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px; font-weight: 600; color: #333; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+        .btn-google:hover { border-color: #667eea; box-shadow: 0 4px 12px rgba(102,126,234,0.15); transform: translateY(-1px); }
+        .btn-google img { width: 22px; height: 22px; }
 
         .panel { display: none; }
         .panel.active { display: block; }
@@ -99,16 +102,10 @@
         <h1>Panel Docente</h1>
         <p>Prueba ICFES — Electromagnetismo</p>
         <div id="loginAlert"></div>
-        <div class="form-group">
-            <label>Correo electrónico</label>
-            <input type="email" id="loginEmail" placeholder="correo@institucion.edu.co" autocomplete="email">
-        </div>
-        <div class="form-group">
-            <label>Contraseña</label>
-            <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password"
-                onkeydown="if(event.key==='Enter') login()">
-        </div>
-        <button class="btn btn-primary btn-full" id="btnLogin" onclick="login()">Ingresar</button>
+        <button class="btn-google" id="btnLogin" onclick="loginGoogle()">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+            Ingresar con Google
+        </button>
     </div>
 </div>
 
@@ -204,12 +201,12 @@
     //  CONFIGURACIÓN FIREBASE — pegar aquí tu config
     // ══════════════════════════════════════════════════════
     const firebaseConfig = {
-        apiKey:            "PEGAR_AQUI",
-        authDomain:        "PEGAR_AQUI",
-        projectId:         "PEGAR_AQUI",
-        storageBucket:     "PEGAR_AQUI",
-        messagingSenderId: "PEGAR_AQUI",
-        appId:             "PEGAR_AQUI"
+        apiKey:            "AIzaSyBNE8g0il0ISljpCgmk__AtF_AQHMbVfAg",
+        authDomain:        "iti-olimpiadas.firebaseapp.com",
+        projectId:         "iti-olimpiadas",
+        storageBucket:     "iti-olimpiadas.firebasestorage.app",
+        messagingSenderId: "762225015291",
+        appId:             "1:762225015291:web:dd4bf9faf01f46823fb35e"
     };
     // ══════════════════════════════════════════════════════
 
@@ -231,22 +228,17 @@
         }
     });
 
-    async function login() {
-        const email = document.getElementById('loginEmail').value.trim();
-        const pass  = document.getElementById('loginPassword').value;
+    async function loginGoogle() {
         const alertEl = document.getElementById('loginAlert');
         const btn = document.getElementById('btnLogin');
         alertEl.innerHTML = '';
-        if (!email || !pass) {
-            alertEl.innerHTML = '<div class="alert alert-error">Completa correo y contraseña.</div>';
-            return;
-        }
-        btn.disabled = true; btn.textContent = 'Ingresando...';
+        btn.disabled = true;
         try {
-            await auth.signInWithEmailAndPassword(email, pass);
+            const provider = new firebase.auth.GoogleAuthProvider();
+            await auth.signInWithPopup(provider);
         } catch(e) {
-            alertEl.innerHTML = '<div class="alert alert-error">Correo o contraseña incorrectos.</div>';
-            btn.disabled = false; btn.textContent = 'Ingresar';
+            alertEl.innerHTML = '<div class="alert alert-error">No se pudo iniciar sesión. Intenta de nuevo.</div>';
+            btn.disabled = false;
         }
     }
 
