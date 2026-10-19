@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Docente — ICFES Electromagnetismo</title>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+
+        .login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        .login-card { background: white; border-radius: 15px; padding: 50px 40px; width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center; }
+        .login-card .logo { font-size: 48px; margin-bottom: 12px; }
+        .login-card h1 { color: #667eea; font-size: 24px; margin-bottom: 6px; }
+        .login-card p { color: #888; margin-bottom: 30px; font-size: 14px; }
+
+        .panel { display: none; }
+        .panel.active { display: block; }
+        .topbar { background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 15px 30px; display: flex; align-items: center; justify-content: space-between; color: white; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid rgba(255,255,255,0.2); }
+        .topbar-left h2 { font-size: 17px; }
+        .topbar-left span { font-size: 12px; opacity: 0.8; }
+        .panel-body { padding: 30px; max-width: 950px; margin: 0 auto; }
+
+        .card { background: white; border-radius: 12px; padding: 28px; margin-bottom: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .card h3 { color: #667eea; margin-bottom: 20px; font-size: 17px; }
+
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 13px; color: #555; font-weight: 600; margin-bottom: 6px; }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%; padding: 11px 13px; border: 2px solid #e0e0e0; border-radius: 8px;
+            font-size: 14px; font-family: inherit; transition: border-color 0.2s; outline: none; color: #333;
+        }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color: #667eea; }
+        .form-group textarea { resize: vertical; min-height: 75px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .form-row { display: flex; gap: 12px; }
+        .form-row .form-group { flex: 1; }
+        .form-row .form-group:first-child { flex: 0 0 110px; }
+
+        .btn { padding: 11px 22px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; box-shadow: 0 4px 12px rgba(102,126,234,0.3); }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(102,126,234,0.4); }
+        .btn-primary:disabled { opacity: 0.6; cursor: default; transform: none; }
+        .btn-full { width: 100%; font-size: 15px; }
+        .btn-sm { padding: 6px 13px; font-size: 12px; }
+        .btn-danger { background: #ff5252; color: white; }
+        .btn-danger:hover { background: #e53935; }
+        .btn-edit { background: #667eea; color: white; }
+        .btn-edit:hover { background: #5a6fd6; }
+        .btn-logout { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.35); }
+        .btn-logout:hover { background: rgba(255,255,255,0.25); }
+
+        .q-item { border: 1px solid #eee; border-radius: 10px; padding: 16px 18px; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 14px; transition: box-shadow 0.2s; }
+        .q-item:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.08); }
+        .q-num { background: linear-gradient(135deg, #667eea, #764ba2); color: white; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; flex-shrink: 0; }
+        .q-content { flex: 1; min-width: 0; }
+        .q-text { font-size: 14px; color: #333; margin-bottom: 8px; font-weight: 500; line-height: 1.4; }
+        .q-opciones { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+        .q-op { font-size: 11px; padding: 3px 10px; border-radius: 12px; background: #f0f0f0; color: #555; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .q-op.correcta { background: #e8f5e9; color: #2e7d32; font-weight: bold; }
+        .q-by { font-size: 11px; color: #aaa; }
+        .q-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+
+        .alert { padding: 11px 15px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; }
+        .alert-error { background: #ffebee; color: #c62828; border-left: 4px solid #f44336; }
+        .alert-success { background: #e8f5e9; color: #1b5e20; border-left: 4px solid #4caf50; }
+        .badge { background: #667eea; color: white; font-size: 11px; padding: 2px 9px; border-radius: 10px; }
+
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+        .modal-overlay.active { display: flex; }
+        .modal-card { background: white; border-radius: 12px; padding: 28px; width: 100%; max-width: 620px; max-height: 90vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h3 { color: #667eea; font-size: 17px; }
+        .btn-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #999; line-height: 1; }
+        .btn-close:hover { color: #333; }
+
+        .empty-state { text-align: center; padding: 40px; color: #bbb; font-size: 15px; }
+        .spinner { text-align: center; padding: 30px; color: #aaa; }
+
+        @media (max-width: 600px) {
+            .grid-2 { grid-template-columns: 1fr; }
+            .form-row { flex-direction: column; }
+            .form-row .form-group:first-child { flex: 1; }
+            .topbar { padding: 12px 16px; flex-direction: column; gap: 8px; text-align: center; }
+            .panel-body { padding: 14px; }
+            .q-actions { flex-direction: row; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-screen" id="loginScreen">
+    <div class="login-card">
+        <div class="logo">🎓</div>
+        <h1>Panel Docente</h1>
+        <p>Prueba ICFES — Electromagnetismo</p>
+        <div id="loginAlert"></div>
+        <div class="form-group">
+            <label>Correo electrónico</label>
+            <input type="email" id="loginEmail" placeholder="correo@institucion.edu.co" autocomplete="email">
+        </div>
+        <div class="form-group">
+            <label>Contraseña</label>
+            <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password"
+                onkeydown="if(event.key==='Enter') login()">
+        </div>
+        <button class="btn btn-primary btn-full" id="btnLogin" onclick="login()">Ingresar</button>
+    </div>
+</div>
+
+<!-- PANEL -->
+<div class="panel" id="panel">
+    <div class="topbar">
+        <div class="topbar-left">
+            <h2>Panel Docente — ICFES Electromagnetismo</h2>
+            <span id="userEmail"></span>
+        </div>
+        <button class="btn btn-logout btn-sm" onclick="logout()">Cerrar sesión</button>
+    </div>
+
+    <div class="panel-body">
+        <div class="card">
+            <h3>➕ Agregar nueva pregunta</h3>
+            <div id="formAlert"></div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>N° orden</label>
+                    <input type="number" id="fOrden" min="1" placeholder="Ej: 11">
+                </div>
+                <div class="form-group">
+                    <label>Enunciado de la pregunta</label>
+                    <textarea id="fPregunta" placeholder="Escribe aquí el enunciado completo..."></textarea>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>Opción A</label><input type="text" id="fOpA" placeholder="Texto opción A"></div>
+                <div class="form-group"><label>Opción B</label><input type="text" id="fOpB" placeholder="Texto opción B"></div>
+                <div class="form-group"><label>Opción C</label><input type="text" id="fOpC" placeholder="Texto opción C"></div>
+                <div class="form-group"><label>Opción D</label><input type="text" id="fOpD" placeholder="Texto opción D"></div>
+            </div>
+            <div class="form-group" style="max-width:200px">
+                <label>Respuesta correcta</label>
+                <select id="fRespuesta">
+                    <option value="">— Selecciona —</option>
+                    <option value="a">A</option>
+                    <option value="b">B</option>
+                    <option value="c">C</option>
+                    <option value="d">D</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" id="btnGuardar" onclick="agregarPregunta()">💾 Guardar en la nube</button>
+        </div>
+
+        <div class="card">
+            <h3>📋 Preguntas guardadas <span class="badge" id="totalCount">0</span></h3>
+            <div id="questionsList"><div class="spinner">Cargando preguntas...</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL EDITAR -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3>✏️ Editar pregunta</h3>
+            <button class="btn-close" onclick="closeModal()">✕</button>
+        </div>
+        <input type="hidden" id="editId">
+        <div class="form-row">
+            <div class="form-group">
+                <label>N° orden</label>
+                <input type="number" id="editOrden" min="1">
+            </div>
+            <div class="form-group">
+                <label>Enunciado</label>
+                <textarea id="editPregunta"></textarea>
+            </div>
+        </div>
+        <div class="grid-2">
+            <div class="form-group"><label>Opción A</label><input type="text" id="editOpA"></div>
+            <div class="form-group"><label>Opción B</label><input type="text" id="editOpB"></div>
+            <div class="form-group"><label>Opción C</label><input type="text" id="editOpC"></div>
+            <div class="form-group"><label>Opción D</label><input type="text" id="editOpD"></div>
+        </div>
+        <div class="form-group" style="max-width:200px">
+            <label>Respuesta correcta</label>
+            <select id="editRespuesta">
+                <option value="a">A</option>
+                <option value="b">B</option>
+                <option value="c">C</option>
+                <option value="d">D</option>
+            </select>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="guardarEdicion()">💾 Guardar cambios</button>
+    </div>
+</div>
+
+<script>
+    // ══════════════════════════════════════════════════════
+    //  CONFIGURACIÓN FIREBASE — pegar aquí tu config
+    // ══════════════════════════════════════════════════════
+    const firebaseConfig = {
+        apiKey:            "PEGAR_AQUI",
+        authDomain:        "PEGAR_AQUI",
+        projectId:         "PEGAR_AQUI",
+        storageBucket:     "PEGAR_AQUI",
+        messagingSenderId: "PEGAR_AQUI",
+        appId:             "PEGAR_AQUI"
+    };
+    // ══════════════════════════════════════════════════════
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db   = firebase.firestore();
+    let unsubscribe = null;
+
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('panel').classList.add('active');
+            document.getElementById('userEmail').textContent = user.email;
+            escucharPreguntas();
+        } else {
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('panel').classList.remove('active');
+            if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+        }
+    });
+
+    async function login() {
+        const email = document.getElementById('loginEmail').value.trim();
+        const pass  = document.getElementById('loginPassword').value;
+        const alertEl = document.getElementById('loginAlert');
+        const btn = document.getElementById('btnLogin');
+        alertEl.innerHTML = '';
+        if (!email || !pass) {
+            alertEl.innerHTML = '<div class="alert alert-error">Completa correo y contraseña.</div>';
+            return;
+        }
+        btn.disabled = true; btn.textContent = 'Ingresando...';
+        try {
+            await auth.signInWithEmailAndPassword(email, pass);
+        } catch(e) {
+            alertEl.innerHTML = '<div class="alert alert-error">Correo o contraseña incorrectos.</div>';
+            btn.disabled = false; btn.textContent = 'Ingresar';
+        }
+    }
+
+    function logout() { auth.signOut(); }
+
+    function escucharPreguntas() {
+        unsubscribe = db.collection('preguntas')
+            .orderBy('orden', 'asc')
+            .onSnapshot(snapshot => {
+                const preguntas = [];
+                snapshot.forEach(doc => preguntas.push({ id: doc.id, ...doc.data() }));
+                renderPreguntas(preguntas);
+                document.getElementById('totalCount').textContent = preguntas.length;
+                const maxOrden = preguntas.reduce((m, p) => Math.max(m, p.orden || 0), 0);
+                const fOrden = document.getElementById('fOrden');
+                if (!fOrden.value) fOrden.value = maxOrden + 1;
+            });
+    }
+
+    function renderPreguntas(preguntas) {
+        const c = document.getElementById('questionsList');
+        if (preguntas.length === 0) {
+            c.innerHTML = '<div class="empty-state">Aún no hay preguntas. ¡Agrega la primera!</div>';
+            return;
+        }
+        c.innerHTML = preguntas.map(p => `
+            <div class="q-item">
+                <div class="q-num">${p.orden}</div>
+                <div class="q-content">
+                    <div class="q-text">${esc(p.pregunta)}</div>
+                    <div class="q-opciones">
+                        <span class="q-op ${p.respuesta==='a'?'correcta':''}">A) ${esc(p.opcionA)}</span>
+                        <span class="q-op ${p.respuesta==='b'?'correcta':''}">B) ${esc(p.opcionB)}</span>
+                        <span class="q-op ${p.respuesta==='c'?'correcta':''}">C) ${esc(p.opcionC)}</span>
+                        <span class="q-op ${p.respuesta==='d'?'correcta':''}">D) ${esc(p.opcionD)}</span>
+                    </div>
+                    ${p.creadoPor ? `<div class="q-by">Por: ${esc(p.creadoPor)}</div>` : ''}
+                </div>
+                <div class="q-actions">
+                    <button class="btn btn-edit btn-sm" onclick="abrirEditar('${p.id}')">Editar</button>
+                    <button class="btn btn-danger btn-sm" onclick="eliminar('${p.id}', ${p.orden})">Borrar</button>
+                </div>
+            </div>`).join('');
+    }
+
+    async function agregarPregunta() {
+        const alertEl = document.getElementById('formAlert');
+        const btn = document.getElementById('btnGuardar');
+        const data = {
+            orden:     parseInt(document.getElementById('fOrden').value) || 0,
+            pregunta:  document.getElementById('fPregunta').value.trim(),
+            opcionA:   document.getElementById('fOpA').value.trim(),
+            opcionB:   document.getElementById('fOpB').value.trim(),
+            opcionC:   document.getElementById('fOpC').value.trim(),
+            opcionD:   document.getElementById('fOpD').value.trim(),
+            respuesta: document.getElementById('fRespuesta').value,
+            creadoPor: auth.currentUser?.email || '',
+            creadoEn:  firebase.firestore.FieldValue.serverTimestamp()
+        };
+        if (!data.orden || !data.pregunta || !data.opcionA || !data.opcionB || !data.opcionC || !data.opcionD || !data.respuesta) {
+            alertEl.innerHTML = '<div class="alert alert-error">Completa todos los campos antes de guardar.</div>';
+            return;
+        }
+        alertEl.innerHTML = '';
+        btn.disabled = true; btn.textContent = 'Guardando...';
+        try {
+            await db.collection('preguntas').add(data);
+            alertEl.innerHTML = '<div class="alert alert-success">✅ ¡Pregunta guardada en la nube!</div>';
+            ['fPregunta','fOpA','fOpB','fOpC','fOpD'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('fRespuesta').value = '';
+            document.getElementById('fOrden').value = '';
+            setTimeout(() => alertEl.innerHTML = '', 4000);
+        } catch(e) {
+            alertEl.innerHTML = `<div class="alert alert-error">Error: ${e.message}</div>`;
+        }
+        btn.disabled = false; btn.textContent = '💾 Guardar en la nube';
+    }
+
+    async function eliminar(id, orden) {
+        if (!confirm(`¿Borrar la pregunta ${orden}? Esta acción no se puede deshacer.`)) return;
+        try { await db.collection('preguntas').doc(id).delete(); }
+        catch(e) { alert('Error: ' + e.message); }
+    }
+
+    function abrirEditar(id) {
+        db.collection('preguntas').doc(id).get().then(doc => {
+            const d = doc.data();
+            document.getElementById('editId').value        = id;
+            document.getElementById('editOrden').value     = d.orden;
+            document.getElementById('editPregunta').value  = d.pregunta;
+            document.getElementById('editOpA').value       = d.opcionA;
+            document.getElementById('editOpB').value       = d.opcionB;
+            document.getElementById('editOpC').value       = d.opcionC;
+            document.getElementById('editOpD').value       = d.opcionD;
+            document.getElementById('editRespuesta').value = d.respuesta;
+            document.getElementById('editModal').classList.add('active');
+        });
+    }
+
+    async function guardarEdicion() {
+        const id = document.getElementById('editId').value;
+        const data = {
+            orden:     parseInt(document.getElementById('editOrden').value) || 0,
+            pregunta:  document.getElementById('editPregunta').value.trim(),
+            opcionA:   document.getElementById('editOpA').value.trim(),
+            opcionB:   document.getElementById('editOpB').value.trim(),
+            opcionC:   document.getElementById('editOpC').value.trim(),
+            opcionD:   document.getElementById('editOpD').value.trim(),
+            respuesta: document.getElementById('editRespuesta').value,
+            editadoEn: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        try { await db.collection('preguntas').doc(id).update(data); closeModal(); }
+        catch(e) { alert('Error: ' + e.message); }
+    }
+
+    function closeModal() { document.getElementById('editModal').classList.remove('active'); }
+    document.getElementById('editModal').addEventListener('click', e => { if (e.target.id === 'editModal') closeModal(); });
+
+    function esc(t) {
+        if (!t) return '';
+        return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+</script>
+</body>
+</html>
